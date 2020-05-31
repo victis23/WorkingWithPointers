@@ -8,6 +8,8 @@
 
 import UIKit
 
+/// Wrapper class that will present the device camera API using a static method.
+/// - Note: ****** comments are for alternative solution that does not use C methods.
 class CameraPresentationWrapper {
 	
 	static func createPresenterWith(viewController: UIViewController, completion: @escaping (UIImage)-> Void) {
@@ -15,20 +17,22 @@ class CameraPresentationWrapper {
 	}
 	
 	private static func presenterBuilder(viewController: UIViewController, completion: @escaping (UIImage)-> Void) {
-//		var initializedFlag = false
-//		defer { initializedFlag.toggle() }
+//		var initializedFlag = false ******
+//		defer { initializedFlag.toggle() } ******
 		
 		var ptrPresenter: UnsafeMutablePointer<CameraPresenter>
 		ptrPresenter = UnsafeMutablePointer<CameraPresenter>.allocate(capacity: 1)
 		
+		/// Calls C method to check if pointer value is undefined.
+		/// - Important: De-initialization process only takes place if pointer references a value in memory.
 		func finishedHandler() {
-//			guard initializedFlag else { return }
+//			guard initializedFlag else { return } ******
 			guard memoryChecker(UnsafeMutableRawPointer(ptrPresenter)) else { return }
 			ptrPresenter.deinitialize(count: 1)
 			ptrPresenter.deallocate()
 		}
 		
-		finishedHandler()
+//		finishedHandler()  Just here for testing whether our protection actually works.
 		
 		ptrPresenter.initialize(to: CameraPresenter(presentingViewController: viewController, finishedHandler: finishedHandler, completion: completion))
 	}
