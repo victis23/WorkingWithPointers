@@ -25,16 +25,26 @@ class CameraPresentationWrapper {
 		
 		/// Calls C method to check if pointer value is undefined.
 		/// - Important: De-initialization process only takes place if pointer references a value in memory.
-		func finishedHandler() {
+		func finishedHandler(isfinished: Bool) throws {
 //			guard initializedFlag else { return } ******
-			guard memoryChecker(UnsafeMutableRawPointer(ptrPresenter)) else { return }
+			guard isfinished else { throw errAllocation.variableWasNotInitialized }
+//			guard memoryChecker(UnsafeMutableRawPointer(ptrPresenter)) else { return }
 			ptrPresenter.deinitialize(count: 1)
 			ptrPresenter.deallocate()
 		}
 		
-//		finishedHandler()  Just here for testing whether our protection actually works.
+		do { try finishedHandler(isfinished: false) }
+		catch(let e) {
+			print(e.localizedDescription)
+			initialize(viewController: viewController, finishedHandler: finishedHandler(isfinished:), completion: completion, object: ptrPresenter)
+		}
 		
-		ptrPresenter.initialize(to: CameraPresenter(presentingViewController: viewController, finishedHandler: finishedHandler, completion: completion))
+		initialize(viewController: viewController, finishedHandler: finishedHandler(isfinished:), completion: completion, object: ptrPresenter)
+	}
+	
+	private static func initialize(viewController: UIViewController, finishedHandler: @escaping (Bool)throws->Void, completion: @escaping (UIImage)->Void, object: UnsafeMutablePointer<CameraPresenter>) {
+		
+		object.initialize(to: CameraPresenter(presentingViewController: viewController, finishedHandler: finishedHandler, completion: completion))
 	}
 	
 	//MARK: - Wrapped Camera API Presenter
@@ -44,9 +54,9 @@ class CameraPresentationWrapper {
 		private let cameraAccessController = UIImagePickerController()
 		private var presentingViewController: UIViewController
 		private var imageCapturer: (UIImage)-> Void
-		private var finishedHandler: (()-> Void)
+		private var finishedHandler: ((Bool)throws -> Void)
 		
-		init(presentingViewController: UIViewController, finishedHandler: @escaping ()-> Void ,completion: @escaping (UIImage)-> Void) {
+		init(presentingViewController: UIViewController, finishedHandler: @escaping (Bool)throws -> Void ,completion: @escaping (UIImage)-> Void) {
 			self.presentingViewController = presentingViewController
 			self.imageCapturer = completion
 			self.finishedHandler = finishedHandler
@@ -83,7 +93,28 @@ class CameraPresentationWrapper {
 		
 		private func finishTrigger() {
 			cameraAccessController.dismiss(animated: true)
-			finishedHandler()
+			
+			do { try finishedHandler(true) }
+			catch(let error) {
+				print(error.localizedDescription)
+				return
+			}
+		}
+	}
+}
+
+
+enum errAllocation: Error {
+	case variableWasNotInitialized
+}
+
+extension errAllocation: LocalizedError {
+	
+	var errorDescription: String? {
+		if self == .variableWasNotInitialized {
+			return "The variable was never initialized"
+		} else {
+			return "Unknown Error"
 		}
 	}
 }
